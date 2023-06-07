@@ -11,12 +11,12 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/bech32"
-	icatypes "github.com/cosmos/ibc-go/v5/modules/apps/27-interchain-accounts/types"
-	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
-	host "github.com/cosmos/ibc-go/v5/modules/core/24-host"
-	tmclienttypes "github.com/cosmos/ibc-go/v5/modules/light-clients/07-tendermint/types"
-	ibctesting "github.com/cosmos/ibc-go/v5/testing"
+	icatypes "github.com/cosmos/ibc-go/v7/modules/apps/27-interchain-accounts/types"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
+	tmclienttypes "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	ibctesting "github.com/cosmos/ibc-go/v7/testing"
 
 	"github.com/ingenuity-build/quicksilver/app"
 	"github.com/ingenuity-build/quicksilver/utils"
@@ -123,7 +123,12 @@ func (s *KeeperTestSuite) coreTest() {
 		return false
 	})
 
-	_, found := quicksilver.ClaimsManagerKeeper.GetLastEpochClaim(ctx, "cosmoshub-4", "quick16pxh2v4hr28h2gkntgfk8qgh47pfmjfhzgeure", cmtypes.ClaimTypeLiquidToken, "osmosis-1")
+	// In the setupTestClaims() the claim was set in the store by ClaimsManagerKeeper.SetClaim
+	// which use the GetKeyClaim key to set in the store instead of GetKeyLastEpochClaim so
+	// it will return not found when use the GetLastEpochClaim
+	// either we use the ClaimsManagerKeeper.SetLastEpochClaim to add the last claim or
+	// switch to GetClaim in the line of code below
+	_, found := quicksilver.ClaimsManagerKeeper.GetClaim(ctx, "cosmoshub-4", "quick16pxh2v4hr28h2gkntgfk8qgh47pfmjfhzgeure", cmtypes.ClaimTypeLiquidToken, "osmosis-1")
 	s.Require().True(found)
 
 	quicksilver.EpochsKeeper.AfterEpochEnd(s.chainA.GetContext(), epochtypes.EpochIdentifierEpoch, 3)
@@ -302,7 +307,7 @@ func (s *KeeperTestSuite) setupChannelForICA(chainID, connectionID, accountSuffi
 	quicksilver.InterchainstakingKeeper.SetConnectionForPort(s.chainA.GetContext(), connectionID, portID)
 
 	channelID := quicksilver.IBCKeeper.ChannelKeeper.GenerateChannelIdentifier(s.chainA.GetContext())
-	quicksilver.IBCKeeper.ChannelKeeper.SetChannel(s.chainA.GetContext(), portID, channelID, channeltypes.Channel{State: channeltypes.OPEN, Ordering: channeltypes.ORDERED, Counterparty: channeltypes.Counterparty{PortId: icatypes.PortID, ChannelId: channelID}, ConnectionHops: []string{connectionID}})
+	quicksilver.IBCKeeper.ChannelKeeper.SetChannel(s.chainA.GetContext(), portID, channelID, channeltypes.Channel{State: channeltypes.OPEN, Ordering: channeltypes.ORDERED, Counterparty: channeltypes.Counterparty{PortId: icatypes.HostPortID, ChannelId: channelID}, ConnectionHops: []string{connectionID}})
 
 	quicksilver.IBCKeeper.ChannelKeeper.SetNextSequenceSend(s.chainA.GetContext(), portID, channelID, 1)
 	quicksilver.ICAControllerKeeper.SetActiveChannelID(s.chainA.GetContext(), connectionID, portID, channelID)
@@ -538,3 +543,14 @@ func (s *KeeperTestSuite) addClaim(address, chainID string, claimType cmtypes.Cl
 	}
 	s.GetQuicksilverApp(s.chainA).ClaimsManagerKeeper.SetClaim(s.chainA.GetContext(), &claim)
 }
+
+// func (s *KeeperTestSuite) addLastEpochClaim(address, chainID string, claimType cmtypes.ClaimType, sourceChainID string, amount uint64) {
+// 	claim := cmtypes.Claim{
+// 		UserAddress:   address,
+// 		ChainId:       chainID,
+// 		Module:        claimType,
+// 		SourceChainId: sourceChainID,
+// 		Amount:        amount,
+// 	}
+// 	s.GetQuicksilverApp(s.chainA).ClaimsManagerKeeper.SetLastEpochClaim(s.chainA.GetContext(), &claim)
+// }

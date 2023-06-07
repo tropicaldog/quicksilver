@@ -18,13 +18,13 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	icatypes "github.com/cosmos/ibc-go/v5/modules/apps/27-interchain-accounts/types"
-	ibctransfertypes "github.com/cosmos/ibc-go/v5/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v5/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/v5/modules/core/04-channel/types"
-	"github.com/golang/protobuf/proto" //nolint:staticcheck
+	icatypes "github.com/cosmos/ibc-go/v7/modules/apps/27-interchain-accounts/types"
+	ibctransfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	lsmstakingtypes "github.com/iqlusioninc/liquidity-staking-module/x/staking/types"
 
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/ingenuity-build/quicksilver/utils"
 	queryTypes "github.com/ingenuity-build/quicksilver/x/interchainquery/types"
 	"github.com/ingenuity-build/quicksilver/x/interchainstaking/types"
@@ -408,7 +408,7 @@ func (k *Keeper) handleRewardsDelegation(ctx sdk.Context, zone types.Zone, msg *
 }
 
 func (k *Keeper) handleSendToDelegate(ctx sdk.Context, zone *types.Zone, msg *banktypes.MsgSend, memo string) error {
-	var msgs []sdk.Msg
+	var msgs []proto.Message
 	for _, coin := range msg.Amount {
 		if coin.Denom == zone.BaseDenom {
 			allocations, err := k.DeterminePlanForDelegation(ctx, zone, msg.Amount)
@@ -422,8 +422,8 @@ func (k *Keeper) handleSendToDelegate(ctx sdk.Context, zone *types.Zone, msg *ba
 	}
 
 	k.Logger(ctx).Info("messages to send", "messages", msgs)
-
-	return k.SubmitTx(ctx, msgs, zone.DelegationAddress, memo, zone.MessagesPerTx)
+	owner := zone.ChainId + ".delegate"
+	return k.SubmitTx(ctx, msgs, zone.DelegationAddress, memo, zone.MessagesPerTx, owner)
 }
 
 // HandleWithdrawForUser handles withdraw for user will check that the msgSend we have successfully executed matches an existing withdrawal record.
@@ -513,7 +513,8 @@ func (k *Keeper) HandleMaturedUnbondings(ctx sdk.Context, zone *types.Zone) erro
 		if ctx.BlockTime().After(withdrawal.CompletionTime) && !withdrawal.CompletionTime.Equal(time.Time{}) { // completion date has passed.
 			k.Logger(ctx).Info("found completed unbonding")
 			sendMsg := &banktypes.MsgSend{FromAddress: zone.DelegationAddress.GetAddress(), ToAddress: withdrawal.Recipient, Amount: sdk.Coins{withdrawal.Amount[0]}}
-			err = k.SubmitTx(ctx, []sdk.Msg{sendMsg}, zone.DelegationAddress, withdrawal.Txhash, zone.MessagesPerTx)
+			owner := zone.ChainId + ".delegate"
+			err = k.SubmitTx(ctx, []proto.Message{sendMsg}, zone.DelegationAddress, withdrawal.Txhash, zone.MessagesPerTx, owner)
 			if err != nil {
 				k.Logger(ctx).Error("error", err)
 				return true
@@ -554,7 +555,8 @@ func (k *Keeper) HandleTokenizedShares(ctx sdk.Context, msg sdk.Msg, sharesAmoun
 				k.DeleteWithdrawalRecord(ctx, zone.ChainId, memo, WithdrawStatusTokenize)
 				withdrawalRecord.Status = WithdrawStatusSend
 				sendMsg := &banktypes.MsgSend{FromAddress: zone.DelegationAddress.Address, ToAddress: withdrawalRecord.Recipient, Amount: withdrawalRecord.Amount}
-				err = k.SubmitTx(ctx, []sdk.Msg{sendMsg}, zone.DelegationAddress, memo, zone.MessagesPerTx)
+				owner := zone.ChainId + ".delegate"
+				err = k.SubmitTx(ctx, []proto.Message{sendMsg}, zone.DelegationAddress, memo, zone.MessagesPerTx, owner)
 				if err != nil {
 					return err
 				}
@@ -828,7 +830,7 @@ func (k *Keeper) HandleRedeemTokens(ctx sdk.Context, msg sdk.Msg, amount sdk.Coi
 	return k.UpdateDelegationRecordForAddress(ctx, redeemMsg.DelegatorAddress, validatorAddress, amount, zone, false)
 }
 
-func (k *Keeper) HandleDelegate(ctx sdk.Context, msg sdk.Msg, memo string) error {
+func (k *Keeper) HandleDelegate(ctx sdk.Context, msg proto.Message, memo string) error {
 	k.Logger(ctx).Info("Received MsgDelegate acknowledgement")
 	// first, type assertion. we should have stakingtypes.MsgDelegate
 	delegateMsg, ok := msg.(*stakingtypes.MsgDelegate)
@@ -1100,7 +1102,7 @@ func DistributeRewardsFromWithdrawAccount(k *Keeper, ctx sdk.Context, args []byt
 	// prepare rewards distribution
 	rewards := sdk.NewCoin(zone.BaseDenom, baseDenomAmount.Sub(baseDenomFee))
 
-	msgs := []sdk.Msg{k.prepareRewardsDistributionMsgs(zone, rewards.Amount)}
+	msgs := []proto.Message{k.prepareRewardsDistributionMsgs(zone, rewards.Amount)}
 
 	// multiDenomFee is the balance of withdrawal account minus the redelegated rewards.
 	multiDenomFee := withdrawBalance.Balances.Sub(sdk.Coins{rewards}...)
@@ -1139,10 +1141,11 @@ func DistributeRewardsFromWithdrawAccount(k *Keeper, ctx sdk.Context, args []byt
 	k.UpdateRedemptionRate(ctx, &zone, rewards.Amount)
 
 	// send tx
-	return k.SubmitTx(ctx, msgs, zone.WithdrawalAddress, "", zone.MessagesPerTx)
+	owner := zone.ChainId + ".withdraw"
+	return k.SubmitTx(ctx, msgs, zone.WithdrawalAddress, "", zone.MessagesPerTx, owner)
 }
 
-func (k *Keeper) prepareRewardsDistributionMsgs(zone types.Zone, rewards sdkmath.Int) sdk.Msg {
+func (k *Keeper) prepareRewardsDistributionMsgs(zone types.Zone, rewards sdkmath.Int) proto.Message {
 	return &banktypes.MsgSend{
 		FromAddress: zone.WithdrawalAddress.GetAddress(),
 		ToAddress:   zone.DelegationAddress.GetAddress(),

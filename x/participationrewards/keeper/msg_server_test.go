@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"cosmossdk.io/math"
+	"github.com/cometbft/cometbft/proto/tendermint/crypto"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/tendermint/tendermint/proto/tendermint/crypto"
 
+	abci "github.com/cometbft/cometbft/abci/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	abci "github.com/tendermint/tendermint/abci/types"
 
 	"github.com/ingenuity-build/quicksilver/app"
 	osmolockup "github.com/ingenuity-build/quicksilver/osmosis-types/lockup"
@@ -225,7 +225,7 @@ func (s *KeeperTestSuite) Test_msgServer_SubmitClaim() {
 				msg = types.MsgSubmitClaim{
 					UserAddress: address.String(),
 					Zone:        "cosmoshub-4",
-					SrcZone:     "testchain1",
+					SrcZone:     "testchain1-1", // wrong src_zone string maybe ?
 					ClaimType:   cmtypes.ClaimTypeLiquidToken,
 					Proofs: []*cmtypes.Proof{
 						{
@@ -383,6 +383,7 @@ func (s *KeeperTestSuite) Test_msgServer_SubmitLocalClaim() {
 				}
 
 				resp := appA.BaseApp.Query(query)
+				fmt.Println(resp)
 
 				return &types.MsgSubmitClaim{
 					UserAddress: address.String(),
