@@ -7,7 +7,7 @@ PACKAGES_SIM=github.com/ingenuity-build/quicksilver/test/simulation
 PACKAGES_E2E=$(shell go list ./... | grep '/e2e')
 VERSION=$(shell git describe --tags | head -n1)
 DOCKER_VERSION ?= $(VERSION)
-TMVERSION := $(shell go list -m github.com/tendermint/tendermint | sed 's:.* ::')
+TMVERSION := $(shell go list -m github.com/cometbft/cometbft | sed 's:.* ::')
 COMMIT := $(shell git log -1 --format='%H')
 LEDGER_ENABLED ?= true
 BINDIR ?= $(GOPATH)/bin
@@ -18,7 +18,6 @@ HTTPS_GIT := https://github.com/ingenuity-build/quicksilver.git
 
 DOCKER := $(shell which docker)
 DOCKERCOMPOSE := $(shell which docker-compose)
-DOCKER_BUF := $(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace bufbuild/buf
 COMMIT_HASH := $(shell git rev-parse --short=7 HEAD)
 DOCKER_TAG := $(COMMIT_HASH)
 
@@ -68,7 +67,7 @@ ldflags = -X github.com/cosmos/cosmos-sdk/version.Name=quicksilver \
           -X github.com/cosmos/cosmos-sdk/version.AppName=$(QS_BINARY) \
           -X github.com/cosmos/cosmos-sdk/version.Version=$(VERSION) \
           -X github.com/cosmos/cosmos-sdk/version.Commit=$(COMMIT) \
-          -X github.com/tendermint/tendermint/version.TMCoreSemVer=$(TMVERSION)
+          -X github.com/cometbft/cometbft/version.TMCoreSemVer=$(TMVERSION)
 
 # DB backend selection
 ifeq (cleveldb,$(findstring cleveldb,$(COSMOS_BUILD_OPTIONS)))
@@ -352,18 +351,22 @@ vet:
 ###############################################################################
 
 # Executes basic chain tests via interchaintest
-ictest-basic: 
+ictest-basic: ictest-deps
 	@cd test/interchaintest && go test -v -run TestBasicQuicksilverStart .
 
+# Executes register-zone tests via interchaintest
+ictest-rz: 
+	@cd test/interchaintest && go test -v -run TestRegisterZone .
+
 # Executes a basic chain upgrade test via interchaintest
-ictest-upgrade: 
+ictest-upgrade: ictest-deps
 	@cd test/interchaintest && go test -v -run TestBasicQuicksilverUpgrade .
 
 # Executes a basic chain upgrade locally via interchaintest after compiling a local image as quicksilver:local
-ictest-upgrade-local: local-image ictest-upgrade
+ictest-upgrade-local: local-image ictest-deps ictest-upgrade
 
 # Executes IBC Transfer tests via interchaintest
-ictest-ibc: 
+ictest-ibc: ictest-deps
 	@cd test/interchaintest && go test -v -run TestQuicksilverJunoIBCTransfer .
 
 # Executes TestInterchainStaking tests via interchaintest
@@ -371,7 +374,9 @@ ictest-interchainstaking: ictest-deps
 	@cd test/interchaintest && go test -v -run TestInterchainStaking .
 
 # Executes all tests via interchaintest after compiling a local image as quicksilver:local
-ictest-all: ictest-build ictest-basic ictest-upgrade ictest-ibc ictest-interchainstaking
+ictest-all: ictest-setup ictest-basic ictest-upgrade ictest-ibc ictest-interchainstaking
+
+ictest-setup: ictest-build ictest-deps
 
 ictest-build: get-heighliner local-image
 
@@ -383,7 +388,6 @@ ictest-deps:
 ictest-build-push: ictest-setup
 	@$(DOCKER) tag quicksilver:local  quicksilverzone/quicksilver-e2e:latest
 	@$(DOCKER) push quicksilverzone/quicksilver-e2e:latest
-
 .PHONY: ictest-basic ictest-upgrade ictest-ibc ictest-all ictest-deps ictest-build ictest-build-push
 
 ###############################################################################
@@ -503,37 +507,33 @@ mdlint-fix:
 ###                                Protobuf                                 ###
 ###############################################################################
 
-BUF_VERSION=1.15.1
+protoVer=0.13.0
+protoImageName=ghcr.io/cosmos/proto-builder:$(protoVer)
+protoImage=$(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace $(protoImageName)
 
-proto-all: proto-gen
+proto-all: proto-format proto-lint proto-gen
 
 proto-gen:
 	@echo "🤖 Generating code from protobuf..."
-	@$(DOCKER) run --rm --volume "$(PWD)":/workspace --workdir /workspace \
-		quicksilver-proto sh ./proto/generate.sh
+	@$(protoImage) sh ./scripts/protocgen.sh
 	@echo "✅ Completed code generation!"
 
 proto-lint:
 	@echo "🤖 Running protobuf linter..."
-	@$(DOCKER) run --volume "$(PWD)":/workspace --workdir /workspace \
-		bufbuild/buf:$(BUF_VERSION) lint
+	@$(protoImage) buf lint --error-format=json
 	@echo "✅ Completed protobuf linting!"
 
 proto-format:
 	@echo "🤖 Running protobuf format..."
-	@$(DOCKER) run --volume "$(PWD)":/workspace --workdir /workspace \
-		bufbuild/buf:$(BUF_VERSION) format -w
+	@$(protoImage) find ./ -name "*.proto" -exec clang-format -i {} \;
 	@echo "✅ Completed protobuf format!"
 
 proto-breaking-check:
 	@echo "🤖 Running protobuf breaking check against develop branch..."
-	@$(DOCKER) run --volume "$(PWD)":/workspace --workdir /workspace \
-		bufbuild/buf:$(BUF_VERSION) breaking --against '.git#branch=develop'
+	@$(protoImage) buf breaking --against $(HTTPS_GIT)#branch=develop'
 	@echo "✅ Completed protobuf breaking check!"
 
-proto-setup:
-	@echo "🤖 Setting up protobuf environment..."
-	@$(DOCKER) build --rm --tag quicksilver-proto:latest --file proto/Dockerfile .
-	@echo "✅ Setup protobuf environment!"
-
-
+proto-swagger-gen:
+	@echo "🤖 Generating Protobuf Swagger..."
+	@$(protoImage) sh ./scripts/protoc-swagger-gen.sh
+	@echo "✅ Completed swagger generation!"
