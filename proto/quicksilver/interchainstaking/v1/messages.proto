@@ -50,6 +50,20 @@ service Msg {
       body: "*"
     };
   }
+
+  rpc GovAddOperatorToDenyList(MsgGovAddOperatorToDenyList) returns (MsgGovAddOperatorToDenyListResponse) {
+    option (google.api.http) = {
+      post: "/quicksilver/tx/v1/interchainstaking/deny_list_add"
+      body: "*"
+    };
+  }
+
+  rpc GovRemoveOperatorFromDenyList(MsgGovRemoveOperatorFromDenyList) returns (MsgGovRemoveOperatorFromDenyListResponse) {
+    option (google.api.http) = {
+      post: "/quicksilver/tx/v1/interchainstaking/deny_list_remove"
+      body: "*"
+    };
+  }
 }
 
 // MsgRequestRedemption represents a message type to request a burn of qAssets

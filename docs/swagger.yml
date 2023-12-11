@@ -1647,7 +1647,10 @@ paths:
                         protobuf release, and it is not used for type URLs
                         beginning with
 
-                        type.googleapis.com.
+                        type.googleapis.com. As of May 2023, there are no widely
+                        used type server
+
+                        implementations and no plans to implement one.
 
 
                         Schemes other than `http`, `https` (or the empty scheme)
@@ -1692,6 +1695,10 @@ paths:
                         if (any.is(Foo.class)) {
                           foo = any.unpack(Foo.class);
                         }
+                        // or ...
+                        if (any.isSameTypeAs(Foo.getDefaultInstance())) {
+                          foo = any.unpack(Foo.getDefaultInstance());
+                        }
 
                      Example 3: Pack and unpack a message in Python.
 
@@ -1729,7 +1736,6 @@ paths:
                     type
 
                     name "y.z".
-
 
 
                     JSON
@@ -1958,7 +1964,10 @@ paths:
                         protobuf release, and it is not used for type URLs
                         beginning with
 
-                        type.googleapis.com.
+                        type.googleapis.com. As of May 2023, there are no widely
+                        used type server
+
+                        implementations and no plans to implement one.
 
 
                         Schemes other than `http`, `https` (or the empty scheme)
@@ -2003,6 +2012,10 @@ paths:
                         if (any.is(Foo.class)) {
                           foo = any.unpack(Foo.class);
                         }
+                        // or ...
+                        if (any.isSameTypeAs(Foo.getDefaultInstance())) {
+                          foo = any.unpack(Foo.getDefaultInstance());
+                        }
 
                      Example 3: Pack and unpack a message in Python.
 
@@ -2040,7 +2053,6 @@ paths:
                     type
 
                     name "y.z".
-
 
 
                     JSON
@@ -2197,6 +2209,110 @@ paths:
               channel_id:
                 type: string
               port_id:
+                type: string
+              authority:
+                type: string
+      tags:
+        - Msg
+  /quicksilver/tx/v1/interchainstaking/deny_list_add:
+    post:
+      operationId: GovAddOperatorToDenyList
+      responses:
+        '200':
+          description: A successful response.
+          schema:
+            type: object
+            description: >-
+              MsgGovAddOperatorToDenyListResponse defines the
+              MsgGovAddOperatorToDenyList response type.
+        default:
+          description: An unexpected error response.
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              code:
+                type: integer
+                format: int32
+              message:
+                type: string
+              details:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type_url:
+                      type: string
+                    value:
+                      type: string
+                      format: byte
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              title:
+                type: string
+              description:
+                type: string
+              chain_id:
+                type: string
+              operator_address:
+                type: string
+              authority:
+                type: string
+      tags:
+        - Msg
+  /quicksilver/tx/v1/interchainstaking/deny_list_remove:
+    post:
+      operationId: GovRemoveOperatorFromDenyList
+      responses:
+        '200':
+          description: A successful response.
+          schema:
+            type: object
+            description: >-
+              MsgGovRemoveOperatorFromDenyListResponse defines the
+              MsgGovAddOperatorToDenyList response type.
+        default:
+          description: An unexpected error response.
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              code:
+                type: integer
+                format: int32
+              message:
+                type: string
+              details:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type_url:
+                      type: string
+                    value:
+                      type: string
+                      format: byte
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              title:
+                type: string
+              description:
+                type: string
+              chain_id:
+                type: string
+              operator_address:
                 type: string
               authority:
                 type: string
@@ -3655,6 +3771,51 @@ paths:
           required: true
           type: string
         - name: delegator_address
+          in: path
+          required: true
+          type: string
+      tags:
+        - QueryInterchainStaking
+  /quicksilver/interchainstaking/v1/zones/{chain_id}/deny_list:
+    get:
+      summary: >-
+        DenyList returns the list of validator operator addresses that exist in
+        the deny list.
+      operationId: DenyList
+      responses:
+        '200':
+          description: A successful response.
+          schema:
+            type: object
+            properties:
+              addresses:
+                type: array
+                items:
+                  type: string
+        default:
+          description: An unexpected error response.
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              code:
+                type: integer
+                format: int32
+              message:
+                type: string
+              details:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type_url:
+                      type: string
+                    value:
+                      type: string
+                      format: byte
+      parameters:
+        - name: chain_id
           in: path
           required: true
           type: string

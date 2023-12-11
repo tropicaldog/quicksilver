@@ -334,3 +334,25 @@ func (k *Keeper) MappedAccounts(c context.Context, req *types.QueryMappedAccount
 
 	return &types.QueryMappedAccountsResponse{RemoteAddressMap: remoteAddressMap}, nil
 }
+
+func (k *Keeper) DenyList(c context.Context, req *types.QueryDenyListRequest) (*types.QueryDenyListResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+
+	zone, ok := k.GetZone(ctx, req.ChainId)
+	if !ok {
+		return nil, status.Error(codes.InvalidArgument, "invalid zone")
+	}
+
+	denyList := []string{}
+
+	k.IterateDenyListRecordsForChain(ctx, req.ChainId, func(index int64, key []byte) (stop bool) {
+		denyList = append(denyList, addressutils.MustEncodeAddressToBech32(zone.AccountPrefix, sdk.ValAddress(key)))
+		return false
+	})
+
+	return &types.QueryDenyListResponse{Addresses: denyList}, nil
+}

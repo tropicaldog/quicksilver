@@ -92,6 +92,11 @@ service Query {
   rpc MappedAccounts(QueryMappedAccountsRequest) returns (QueryMappedAccountsResponse) {
     option (google.api.http).get = "/quicksilver/interchainstaking/v1/mapped_addresses/{address}";
   }
+
+  // DenyList returns the list of validator operator addresses that exist in the deny list.
+  rpc DenyList(QueryDenyListRequest) returns (QueryDenyListResponse) {
+    option (google.api.http).get = "/quicksilver/interchainstaking/v1/zones/{chain_id}/deny_list";
+  }
 }
 
 message Statistics {
@@ -242,4 +247,12 @@ message QueryMappedAccountsRequest {
 message QueryMappedAccountsResponse {
   map<string, bytes> RemoteAddressMap = 1 [(gogoproto.nullable) = false];
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryDenyListRequest {
+  string chain_id = 1 [(gogoproto.moretags) = "yaml:\"chain_id\""];
+}
+
+message QueryDenyListResponse {
+  repeated string addresses = 1;
 }

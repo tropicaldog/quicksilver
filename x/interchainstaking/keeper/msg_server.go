@@ -261,7 +261,7 @@ func (k msgServer) GovSetLsmCaps(goCtx context.Context, msg *types.MsgGovSetLsmC
 			)
 	}
 
-	k.SetLsmCaps(ctx, zone.ChainId, *msg.Caps)
+	k.Keeper.SetLsmCaps(ctx, zone.ChainId, *msg.Caps)
 
 	ctx.EventManager().EmitEvents(sdk.Events{
 		sdk.NewEvent(
@@ -277,4 +277,41 @@ func (k msgServer) GovSetLsmCaps(goCtx context.Context, msg *types.MsgGovSetLsmC
 	})
 
 	return &types.MsgGovSetLsmCapsResponse{}, nil
+}
+
+func (k msgServer) GovAddOperatorToDenyList(goCtx context.Context, msg *types.MsgGovAddOperatorToDenyList) (*types.MsgGovAddOperatorToDenyListResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	// checking msg authority is the gov module address
+	if k.Keeper.GetGovAuthority(ctx) != msg.Authority {
+		return nil,
+			govtypes.ErrInvalidSigner.Wrapf(
+				"invalid authority: expected %s, got %s",
+				k.Keeper.GetGovAuthority(ctx), msg.Authority,
+			)
+	}
+
+	if err := k.Keeper.AddDenyListEntry(ctx, msg.ChainId, msg.OperatorAddress); err != nil {
+		return nil, err
+	}
+
+	return &types.MsgGovAddOperatorToDenyListResponse{}, nil
+}
+
+func (k msgServer) GovRemoveOperatorFromDenyList(goCtx context.Context, msg *types.MsgGovRemoveOperatorFromDenyList) (*types.MsgGovRemoveOperatorFromDenyListResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	// checking msg authority is the gov module address
+	if k.Keeper.GetGovAuthority(ctx) != msg.Authority {
+		return nil,
+			govtypes.ErrInvalidSigner.Wrapf(
+				"invalid authority: expected %s, got %s",
+				k.Keeper.GetGovAuthority(ctx), msg.Authority,
+			)
+	}
+
+	if err := k.Keeper.RemoveDenyListEntry(ctx, msg.ChainId, msg.OperatorAddress); err != nil {
+		return nil, err
+	}
+	return &types.MsgGovRemoveOperatorFromDenyListResponse{}, nil
 }
