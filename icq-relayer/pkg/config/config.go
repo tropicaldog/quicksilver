@@ -59,6 +59,7 @@ func OverwriteConfig(cfg *Config) error {
 
 // Config represents the config file for the relayer
 type Config struct {
+	Port           uint32                               `yaml:"port" json:"port"`
 	DefaultChain   string                               `yaml:"default_chain" json:"default_chain"`
 	AllowedQueries []string                             `yaml:"allowed_queries" json:"allowed_queries"`
 	SkipEpoch      bool                                 `yaml:"skip_epoch" json:"skip_epoch"`
@@ -101,9 +102,10 @@ func (c Config) MustYAML() []byte {
 
 func defaultConfig(keyHome string, debug bool) []byte {
 	return Config{
-		DefaultChain: "quicksilver-1",
+		Port:         2112,
+		DefaultChain: "quicksilver-2",
 		Chains: map[string]*client.ChainClientConfig{
-			"quicksilver-1": GetQuicksilverConfig(keyHome, debug),
+			"quicksilver-2": GetQuicksilverConfig(keyHome, debug),
 			"osmosis-1":     GetOsmosisConfig(keyHome, debug),
 		},
 	}.MustYAML()
@@ -112,7 +114,7 @@ func defaultConfig(keyHome string, debug bool) []byte {
 func GetQuicksilverConfig(keyHome string, debug bool) *client.ChainClientConfig {
 	return &client.ChainClientConfig{
 		Key:            "default",
-		ChainID:        "quicksilver-1",
+		ChainID:        "quicksilver-2",
 		RPCAddr:        "https://rpc.quicksilver.zone:443",
 		GRPCAddr:       "https://grpc.quicksilver.zone:443",
 		AccountPrefix:  "quick",
@@ -133,8 +135,8 @@ func GetOsmosisConfig(keyHome string, debug bool) *client.ChainClientConfig {
 	return &client.ChainClientConfig{
 		Key:            "default",
 		ChainID:        "osmosis-1",
-		RPCAddr:        "https://osmosis-1.technofractal.com:443",
-		GRPCAddr:       "https://gprc.osmosis-1.technofractal.com:443",
+		RPCAddr:        "https://rpc.osmosis-1.quicksilver.zone:443",
+		GRPCAddr:       "https://gprc.osmosis-1.quicksilver.zone:443",
 		AccountPrefix:  "osmo",
 		KeyringBackend: "test",
 		GasAdjustment:  1.2,
