@@ -1,8 +1,6 @@
 package interchaintest
 
-import (
-	"github.com/strangelove-ventures/interchaintest/v5/ibc"
-)
+import "github.com/strangelove-ventures/interchaintest/v6/ibc"
 
 var (
 	QuickSilverE2ERepo  = "quicksilverzone/quicksilver-e2e"
